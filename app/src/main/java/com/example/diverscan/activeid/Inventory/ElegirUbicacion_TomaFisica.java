@@ -48,6 +48,7 @@ import java.util.Objects;
 
 public class ElegirUbicacion_TomaFisica extends AppCompatActivity implements ResponseHandlerInterface {
 
+    private static final String TAG = "ElegirUbicacion_TomaFisica";
     private static final String RFID_FLOW_TAG = "RFID_FLOW";
     private View ElegirUbicacionView;
     InventoryDBHelper InventoryDBHelper;
