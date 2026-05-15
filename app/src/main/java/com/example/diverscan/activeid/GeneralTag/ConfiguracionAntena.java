@@ -27,10 +27,15 @@ import com.example.diverscan.activeid.R;
 import com.example.diverscan.activeid.login.LoginActivity;
 import com.zebra.rfid.api3.TagData;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public class ConfiguracionAntena extends AppCompatActivity implements ResponseHandlerInterface{
     private static final String UI_TAG = "RFID_UI";
+    private static final SimpleDateFormat LOG_TIME_FORMAT =
+            new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US);
     private TextView txtPotencia;
     private TextView txtCnfActual;
     private SeekBar skPotencia;
@@ -65,6 +70,7 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.actvity_configurar_antena);
+        logAperturaPantalla("onCreate");
         Log.d(UI_TAG, "[VIEW] Abriendo ConfiguracionAntena para validacion de SDK RFID y lectura RFID.");
         _context = this;
         _activity = this;
@@ -165,6 +171,7 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
     @Override
     protected void onPostResume() {
         super.onPostResume();
+        logAperturaPantalla("onPostResume");
         // FIX ANR: rfidHandler.onResume() llama internamente a connect() — operación
         // bloqueante de Bluetooth. Ejecutarla en el UI thread causa ANR.
         // Se mueve a hilo background (igual que Lectura_Inventario y ElegirUbicacion_TomaFisica).
@@ -286,6 +293,14 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
         sessionActivate.cancel();
         sessionActivate.start();
     }
+
+    private void logAperturaPantalla(String origen) {
+        String fechaHora = LOG_TIME_FORMAT.format(new Date());
+        Log.i(UI_TAG, "[APERTURA] ConfiguracionAntena abierta desde " + origen
+                + " | fechaHora=" + fechaHora
+                + " | epochMs=" + System.currentTimeMillis());
+    }
+
     private void conectarLector() {
         new AsyncTask<Void, Void, String>() {
             @Override
