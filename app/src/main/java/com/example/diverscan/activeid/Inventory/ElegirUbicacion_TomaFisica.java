@@ -48,7 +48,7 @@ import java.util.Objects;
 
 public class ElegirUbicacion_TomaFisica extends AppCompatActivity implements ResponseHandlerInterface {
 
-    private static final String TAG = "ElegirUbicacion_TomaFisica";
+    private static final String RFID_FLOW_TAG = "RFID_FLOW";
     private View ElegirUbicacionView;
     InventoryDBHelper InventoryDBHelper;
     OfficesDBHelper OfficesDBHelper;
@@ -92,8 +92,28 @@ public class ElegirUbicacion_TomaFisica extends AppCompatActivity implements Res
         cargarTiposInventarios();
         cargarRazonesSociales();
         cargarUbicaciones();
+        prepararSesionRfid(false);
+    }
+
+    private void prepararSesionRfid(boolean reconnectIfNeeded) {
         rfidHandler = TagWriter.getInstance();
+        if (rfidHandler == null) {
+            return;
+        }
         rfidHandler.onCreate(this);
+        rfidHandler.setResponseHandler(this);
+        Log.d(RFID_FLOW_TAG, "[ElegirUbicacion_TomaFisica] Sesion RFID enlazada a la pantalla. initialized="
+                + rfidHandler.isInitialized() + ", reconnect=" + reconnectIfNeeded);
+        if (!reconnectIfNeeded) {
+            return;
+        }
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                Log.d(RFID_FLOW_TAG, "[ElegirUbicacion_TomaFisica] Validando/reutilizando conexion RFID al volver a la pantalla.");
+                rfidHandler.onResume(ElegirUbicacion_TomaFisica.this);
+            }
+        }).start();
     }
 
     public void controles() {
@@ -599,21 +619,14 @@ public class ElegirUbicacion_TomaFisica extends AppCompatActivity implements Res
     @Override
     protected void onPause() {
         super.onPause();
+        Log.d(RFID_FLOW_TAG, "[ElegirUbicacion_TomaFisica] onPause: se conserva la sesion RFID para la siguiente pantalla.");
         rfidHandler.onPause();
     }
 
     @Override
     protected void onPostResume() {
         super.onPostResume();
-        // FIX ANR (BUG-13): rfidHandler.onResume() llama internamente a connect(),
-        // operación bloqueante de Bluetooth. Ejecutarla en el main thread causaba
-        // ANR de 5-10s que bloqueaba Cargar_Toma_Fisica al perder el foco.
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                rfidHandler.onResume(ElegirUbicacion_TomaFisica.this);
-            }
-        }).start();
+        prepararSesionRfid(true);
     }
 
     @Override

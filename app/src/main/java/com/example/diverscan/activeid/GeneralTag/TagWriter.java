@@ -109,10 +109,11 @@ public class TagWriter implements Readers.RFIDReaderEventHandler{
             InitSDK();
             initialized = true;
         } else {
-            // Si ya está inicializado, intentar reconectar o verificar conexión
-            if (readers != null) {
-                 new ConnectionTask().execute();
-            }
+            // Mantener la conexión vigente entre pantallas. Si el singleton ya está
+            // inicializado solo se actualiza el handler/contexto; la reconexión, si
+            // hace falta, se resuelve desde onResume() de la pantalla activa.
+            Log.d(SDK_TAG, "[LIFECYCLE] Reutilizando singleton RFID entre pantallas. initialized=" + initialized
+                    + ", readerConnected=" + (reader != null && reader.isConnected()));
         }
     }
 

@@ -66,6 +66,7 @@ import java.util.TimerTask;
 import java.util.UUID;
 
 public class Lectura_Inventario extends AppCompatActivity implements ResponseHandlerInterface, IChequearInventario {
+    private static final String RFID_FLOW_TAG = "RFID_FLOW";
     AssetsDBHelper AssetsDBHelper;
     com.example.diverscan.activeid.sqlite.SincronizarDBHelper sincronizarDBHelper;
     private TextView txt_TagsLeidos;
@@ -139,8 +140,7 @@ public class Lectura_Inventario extends AppCompatActivity implements ResponseHan
         _context = this;
         controles();
         eventos();
-        rfidHandler = TagWriter.getInstance();
-        rfidHandler.onCreate(this);
+        prepararSesionRfid(false);
         hideSoftKeyboard();
         RecibirTakesInfo();
         sessionActivate = new CountDownTimer(startTime, interval) {
@@ -161,11 +161,36 @@ public class Lectura_Inventario extends AppCompatActivity implements ResponseHan
 
     private void inicializarRFID() {
         rfidHandler = TagWriter.getInstance();
-        if (rfidHandler != null && !rfidHandler.isInitialized()) {
-            rfidHandler.onCreate(this); // usa GetContext() internamente
+        if (rfidHandler == null) {
+            return;
         }
+        rfidHandler.onCreate(this);
         rfidHandler.setResponseHandler(this);
-        rfidHandler.onResume();
+        Log.d(RFID_FLOW_TAG, "[Lectura_Inventario] Sesion RFID enlazada a la pantalla. initialized="
+                + rfidHandler.isInitialized() + ", reconnect=" + false);
+    }
+
+    private void prepararSesionRfid(boolean reconnectIfNeeded) {
+        inicializarRFID();
+        if (!reconnectIfNeeded || rfidHandler == null) {
+            return;
+        }
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                Log.d(RFID_FLOW_TAG, "[Lectura_Inventario] Validando/reutilizando conexion RFID al volver a la pantalla.");
+                final String status = rfidHandler.onResume(Lectura_Inventario.this);
+                Log.d(RFID_FLOW_TAG, "[Lectura_Inventario] Resultado de validacion RFID: " + status);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (!isFinishing() && !isDestroyed() && status != null && !status.isEmpty()) {
+                            Toast.makeText(_context, status, Toast.LENGTH_LONG).show();
+                        }
+                    }
+                });
+            }
+        }).start();
     }
 
     //*************************************************************************************************************
@@ -691,6 +716,7 @@ public class Lectura_Inventario extends AppCompatActivity implements ResponseHan
     @Override
     protected void onPause() {
         super.onPause();
+        Log.d(RFID_FLOW_TAG, "[Lectura_Inventario] onPause: se conserva la sesion RFID para otras pantallas.");
         rfidHandler.onPause();
     }
 
@@ -699,24 +725,7 @@ public class Lectura_Inventario extends AppCompatActivity implements ResponseHan
     @Override
     protected void onPostResume() {
         super.onPostResume();
-        // FIX ANR: rfidHandler.onResume() llama internamente a connect() que es
-        // una operación bloqueante de Bluetooth (puede tomar varios segundos).
-        // Ejecutarlo en el main thread causaba un ANR de 10+ segundos.
-        // Se mueve a un hilo de background; el Toast se actualiza en el UI thread.
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                final String status = rfidHandler.onResume(Lectura_Inventario.this);
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (!isFinishing() && !isDestroyed()) {
-                            Toast.makeText(_context, status, Toast.LENGTH_LONG).show();
-                        }
-                    }
-                });
-            }
-        }).start();
+        prepararSesionRfid(true);
     }
 
     //*************************************************************************************************************
