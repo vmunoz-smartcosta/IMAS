@@ -55,20 +55,28 @@
                 <TextView
                     android:id="@+id/Titulo"
                     android:layout_width="wrap_content"
-                    android:layout_height="27dp"
+                    android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Escoge la potencia de la antena"
+                    android:text="Configuracion y validacion RFID"
                     android:layout_centerInParent="true"
                     android:textAlignment="center"
                     android:textSize="17dp"
                     android:textStyle="bold"
                     />
                 <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Valida SDK RFID, lector y prueba de lectura EPC"
+                    android:textAlignment="center"
+                    android:textSize="13sp" />
+                <TextView
                     android:id="@+id/txtUltimaConfiguracion"
                     android:layout_width="wrap_content"
-                    android:layout_height="27dp"
+                    android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text=""
+                    android:layout_marginTop="6dp"
                     android:layout_centerInParent="true"
                     android:textAlignment="center"
                     android:textSize="17dp"
@@ -120,7 +128,7 @@
                 android:layout_height="wrap_content"
                 android:textStyle="bold"
                 android:layout_width="wrap_content"
-                android:text="Antenas Disponibles:"
+                android:text="Lectores RFID disponibles:"
                 />
             <Spinner
                 android:id="@+id/spinnerLectores"
@@ -149,7 +157,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Prueba de Lectura"
+                android:text="Prueba de lectura RFID"
                 android:textStyle="bold"
                 android:textSize="15sp"
                 android:layout_marginBottom="8dp"/>
@@ -167,7 +175,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:layout_marginRight="6dp"
-                    android:text="📷 Lectura Sencilla"
+                    android:text="Lectura RFID simple"
                     android:textSize="13sp"
                     android:backgroundTint="#1976D2"
                     android:textColor="#FFFFFF" />
@@ -178,7 +186,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:layout_marginLeft="6dp"
-                    android:text="▶ Iniciar Continua"
+                    android:text="Iniciar RFID continuo"
                     android:textSize="13sp"
                     android:backgroundTint="#388E3C"
                     android:textColor="#FFFFFF" />
@@ -191,7 +199,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="Tags leídos: 0"
+                android:text="Tags RFID leidos: 0"
                 android:textSize="13sp"
                 android:textStyle="bold"/>
 
@@ -203,7 +211,7 @@
                 android:layout_marginTop="4dp"
                 android:background="#FFFFFF"
                 android:padding="6dp"
-                android:text="(sin lecturas)"
+                android:text="(sin lecturas RFID)"
                 android:textSize="12sp"
                 android:fontFamily="monospace"
                 android:scrollbars="vertical"

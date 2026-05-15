@@ -122,16 +122,17 @@ public class TagWriter implements Readers.RFIDReaderEventHandler{
                 if (availableRFIDReaderList != null) {
                     for (ReaderDevice device : availableRFIDReaderList) {
                         names.add(device.getName());
+                        Log.d("RFID_SDK", "[VALIDACION] Lector RFID detectado por el SDK: " + device.getName());
                     }
-                    Log.d("RFID_SDK", "getAvailableReaderNames: " + names.size() + " dispositivos encontrados.");
+                    Log.d("RFID_SDK", "[VALIDACION] getAvailableReaderNames: " + names.size() + " lectores RFID encontrados.");
                 } else {
-                    Log.w("RFID_SDK", "getAvailableReaderNames: La lista de lectores es nula.");
+                    Log.w("RFID_SDK", "[VALIDACION] getAvailableReaderNames: La lista de lectores RFID es nula.");
                 }
             } else {
-                Log.e("RFID_SDK", "getAvailableReaderNames: El objeto Readers no ha sido inicializado.");
+                Log.e("RFID_SDK", "[VALIDACION] getAvailableReaderNames: El objeto Readers no ha sido inicializado.");
             }
         } catch (InvalidUsageException e) {
-            Log.e("RFID_SDK", "Error al obtener lista de lectores: " + e.getMessage());
+            Log.e("RFID_SDK", "[VALIDACION] Error al obtener lista de lectores RFID: " + e.getMessage());
             e.printStackTrace();
         }
         return names;
@@ -534,19 +535,25 @@ public class TagWriter implements Readers.RFIDReaderEventHandler{
         final String DIAG = "RFID_SDK";
         PackageManager pm = context.getPackageManager();
 
-        // ─── Paquetes Zebra conocidos que se buscan ───────────────────────────
-        String[] zebraPackages = {
+        // Paquetes obligatorios del flujo RFID.
+        String[] zebraRfidPackages = {
             "com.zebra.rfid.rfidmanager",
             "com.zebra.rfid.service",
-            "com.symbol.rfid.service",
+            "com.symbol.rfid.service"
+        };
+
+        // Paquetes Zebra opcionales para barcode/scanner. No son requeridos por esta vista.
+        String[] zebraScannerPackages = {
             "com.zebra.scannercontrol",
             "com.symbol.datawedge"
         };
 
         Log.d(DIAG, "========== DIAGNÓSTICO ZEBRA RFID SDK ==========");
+        Log.d(DIAG, "[VALIDACION] Esta validacion corresponde al flujo RFID. DataWedge y scannercontrol son opcionales en esta vista.");
 
-        // 1. Verificar cada paquete Zebra individualmente
-        for (String pkg : zebraPackages) {
+        // 1. Verificar los paquetes requeridos del flujo RFID.
+        Log.d(DIAG, "[VALIDACION] Verificando paquetes requeridos para RFID...");
+        for (String pkg : zebraRfidPackages) {
             try {
                 PackageInfo info = pm.getPackageInfo(pkg, PackageManager.GET_SERVICES);
                 Log.d(DIAG, "[OK] Paquete ENCONTRADO: " + pkg
@@ -568,8 +575,21 @@ public class TagWriter implements Readers.RFIDReaderEventHandler{
             }
         }
 
+        // 1.1 Verificar paquetes opcionales de scanner solo como referencia.
+        Log.d(DIAG, "[VALIDACION] Verificando paquetes opcionales de scanner/barcode (no requeridos para RFID)...");
+        for (String pkg : zebraScannerPackages) {
+            try {
+                PackageInfo info = pm.getPackageInfo(pkg, PackageManager.GET_SERVICES);
+                Log.d(DIAG, "[OPCIONAL] Paquete de scanner encontrado: " + pkg
+                        + " | versionName=" + info.versionName
+                        + " | versionCode=" + info.getLongVersionCode());
+            } catch (PackageManager.NameNotFoundException e) {
+                Log.w(DIAG, "[OPCIONAL] Paquete de scanner no instalado: " + pkg);
+            }
+        }
+
         // 2. Buscar TODOS los paquetes instalados que contengan 'zebra' o 'rfid' en su nombre
-        Log.d(DIAG, "--- Escaneando todos los paquetes con 'zebra' o 'rfid' ---");
+        Log.d(DIAG, "--- Escaneando paquetes Zebra/RFID instalados para soporte del flujo RFID ---");
         try {
             java.util.List<PackageInfo> allPackages = pm.getInstalledPackages(0);
             boolean found = false;
@@ -614,21 +634,21 @@ public class TagWriter implements Readers.RFIDReaderEventHandler{
     private class CreateInstanceTask extends AsyncTask<Void, Void, Void>{
         @Override
         protected Void doInBackground(Void... voids){
-            Log.d(TAG, "CreateInstanceTask: Iniciando configuración de Readers");
+            Log.d(TAG, "[VALIDACION] CreateInstanceTask: Iniciando configuracion de Readers para RFID.");
             InvalidUsageException invalidUsageException = null;
             try{
-                Log.d(TAG, "Intentando conectar con ENUM_TRANSPORT.SERVICE_SERIAL");
+                Log.d(TAG, "[VALIDACION] Intentando inicializar RFID con ENUM_TRANSPORT.SERVICE_SERIAL");
                 readers = new Readers(context, ENUM_TRANSPORT.SERVICE_SERIAL);
                 availableRFIDReaderList = readers.GetAvailableRFIDReaderList();
-                Log.d(TAG, "SERVICE_SERIAL: Lectores encontrados: " + (availableRFIDReaderList != null ? availableRFIDReaderList.size() : 0));
+                Log.d(TAG, "[VALIDACION] SERVICE_SERIAL: Lectores RFID encontrados: " + (availableRFIDReaderList != null ? availableRFIDReaderList.size() : 0));
             }catch (InvalidUsageException e){
-                Log.e(TAG, "Error en SERVICE_SERIAL: " + e.getMessage());
+                Log.e(TAG, "[VALIDACION] Error en SERVICE_SERIAL: " + e.getMessage());
                 e.printStackTrace();
                 invalidUsageException = e;
             }
             
             if (invalidUsageException != null){
-                Log.w(TAG, "SERVICE_SERIAL falló, reintentando con ENUM_TRANSPORT.BLUETOOTH");
+                Log.w(TAG, "[VALIDACION] SERVICE_SERIAL fallo, reintentando con ENUM_TRANSPORT.BLUETOOTH");
                 if (readers != null) {
                     readers.Dispose();
                     readers = null;
@@ -636,9 +656,9 @@ public class TagWriter implements Readers.RFIDReaderEventHandler{
                 try {
                     readers = new Readers(context, ENUM_TRANSPORT.BLUETOOTH);
                     availableRFIDReaderList = readers.GetAvailableRFIDReaderList();
-                    Log.d(TAG, "BLUETOOTH: Lectores encontrados: " + (availableRFIDReaderList != null ? availableRFIDReaderList.size() : 0));
+                    Log.d(TAG, "[VALIDACION] BLUETOOTH: Lectores RFID encontrados: " + (availableRFIDReaderList != null ? availableRFIDReaderList.size() : 0));
                 } catch (Exception e) {
-                    Log.e(TAG, "Error crítico al inicializar Readers en ambos modos: " + e.getMessage());
+                    Log.e(TAG, "[VALIDACION] Error critico al inicializar Readers en ambos modos: " + e.getMessage());
                     e.printStackTrace();
                 }
             }
@@ -657,11 +677,12 @@ public class TagWriter implements Readers.RFIDReaderEventHandler{
     private class ConnectionTask extends AsyncTask<Void, Void, String>{
         @Override
         protected String doInBackground(Void... voids){
-            Log.d(TAG, "ConnectionTask");
+            Log.d(TAG, "[VALIDACION] ConnectionTask: iniciando validacion de lector RFID.");
             GetAvailableReader();
             if(reader != null){
                 return connect();
             }
+            Log.e(TAG, "[VALIDACION] ConnectionTask: no se encontro lector RFID para conectar.");
             return "No se pudo encontrar o conectar el lector";
         }
 
@@ -673,7 +694,7 @@ public class TagWriter implements Readers.RFIDReaderEventHandler{
     //*******************************************************************************************
 
     private synchronized void GetAvailableReader() {
-        Log.d(TAG, "GetAvailableReader");
+        Log.d(TAG, "[VALIDACION] GetAvailableReader: buscando lectores RFID disponibles.");
         try {
             if (readers != null)
             {
@@ -688,22 +709,32 @@ public class TagWriter implements Readers.RFIDReaderEventHandler{
                         if (availableRFIDReaderList.size() == 1) {
                             readerDevice = availableRFIDReaderList.get(0);
                             reader = readerDevice.getRFIDReader();
+                            Log.d(TAG, "[VALIDACION] GetAvailableReader: lector RFID unico seleccionado -> " + readerDevice.getName());
                         } else {
                             // search reader specified by name
                             for (ReaderDevice device : availableRFIDReaderList) {
+                                Log.d(TAG, "[VALIDACION] GetAvailableReader: evaluando lector RFID -> " + device.getName());
                                 if (device.getName().equals(readername))
                                 {
                                     readerDevice = device;
                                     reader = readerDevice.getRFIDReader();
+                                    Log.d(TAG, "[VALIDACION] GetAvailableReader: lector RFID seleccionado por nombre -> " + readername);
                                 }
                             }
                         }
+                    } else {
+                        Log.w(TAG, "[VALIDACION] GetAvailableReader: el SDK RFID devolvio una lista vacia de lectores.");
                     }
+                } else {
+                    Log.w(TAG, "[VALIDACION] GetAvailableReader: GetAvailableRFIDReaderList devolvio null.");
                 }
+            } else {
+                Log.e(TAG, "[VALIDACION] GetAvailableReader: Readers es null, no se puede validar RFID.");
             }
         }
         catch (InvalidUsageException e)
         {
+            Log.e(TAG, "[VALIDACION] GetAvailableReader: InvalidUsageException -> " + e.getMessage());
             e.printStackTrace();
         }
     }

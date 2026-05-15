@@ -30,6 +30,7 @@ import com.zebra.rfid.api3.TagData;
 import java.util.List;
 
 public class ConfiguracionAntena extends AppCompatActivity implements ResponseHandlerInterface{
+    private static final String UI_TAG = "RFID_UI";
     private TextView txtPotencia;
     private TextView txtCnfActual;
     private SeekBar skPotencia;
@@ -64,16 +65,19 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.actvity_configurar_antena);
+        Log.d(UI_TAG, "[VIEW] Abriendo ConfiguracionAntena para validacion de SDK RFID y lectura RFID.");
         _context = this;
         _activity = this;
         controles();
         eventos();
         rfidHandler = TagWriter.getInstance();
+        Log.d(UI_TAG, "[VIEW] Instancia TagWriter obtenida. Iniciando flujo de validacion RFID.");
         rfidHandler.onCreate(this);
 
         try{
             Power = SharedPreferencesGetSet.leer_local("potenciaAntena", this);
             txtCnfActual.setText("Potencia actual: " + Power);
+            Log.d(UI_TAG, "[VIEW] Potencia RFID inicial leida desde preferencias: " + Power);
             
             // Inicialización básica (se refinará cuando el lector conecte)
             skPotencia.setMax(300);
@@ -112,14 +116,14 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
         new AsyncTask<Void, Void, List<String>>() {
             @Override
             protected List<String> doInBackground(Void... voids) {
-                Log.d("RFID_SDK", "Listando lectores disponibles...");
+                Log.d(UI_TAG, "[VIEW] Solicitando al SDK la lista de lectores RFID disponibles.");
                 return rfidHandler.getAvailableReaderNames();
             }
 
             @Override
             protected void onPostExecute(List<String> readerNames) {
                 if (readerNames != null && !readerNames.isEmpty()) {
-                    Log.d("RFID_SDK", "Lectores encontrados: " + readerNames.size());
+                    Log.d(UI_TAG, "[VIEW] Lectores RFID encontrados para la vista: " + readerNames.size() + " -> " + readerNames);
                     ArrayAdapter<String> adapter = new ArrayAdapter<>(_context,
                             android.R.layout.simple_spinner_item, readerNames);
                     adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -133,7 +137,7 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
                         @Override
                         public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                             String lectorSeleccionado = readerNames.get(position);
-                            Log.d("RFID_SDK", "Lector seleccionado en UI: " + lectorSeleccionado);
+                            Log.d(UI_TAG, "[VIEW] Lector RFID seleccionado en vista: " + lectorSeleccionado);
                             rfidHandler.setReaderName(lectorSeleccionado);
                             conectarLector();
                         }
@@ -143,8 +147,8 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
                     });
 
                 } else {
-                    Log.e("RFID_SDK", "No se encontraron lectores en la búsqueda inicial.");
-                    Toast.makeText(_context, "No hay lectores disponibles", Toast.LENGTH_LONG).show();
+                    Log.e(UI_TAG, "[VIEW] El SDK RFID no devolvio lectores para la vista de configuracion.");
+                    Toast.makeText(_context, "No hay lectores RFID disponibles", Toast.LENGTH_LONG).show();
                 }
             }
         }.execute();
@@ -152,6 +156,7 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
     @Override
     protected void onPause() {
         super.onPause();
+        Log.d(UI_TAG, "[VIEW] onPause en ConfiguracionAntena.");
         if (rfidHandler != null) {
             rfidHandler.onPause();
         }
@@ -167,7 +172,9 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
             new Thread(new Runnable() {
                 @Override
                 public void run() {
+                    Log.d(UI_TAG, "[VIEW] onPostResume: validando reconexion del lector RFID.");
                     final String status = rfidHandler.onResume(ConfiguracionAntena.this);
+                    Log.d(UI_TAG, "[VIEW] onPostResume: resultado de reconexion RFID = " + status);
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
@@ -184,10 +191,12 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        Log.d(UI_TAG, "[VIEW] onDestroy en ConfiguracionAntena.");
         // rfidHandler.onDestroy(); // Comentado para mantener conexión
     }
     @Override
     public void SetMessage(String msg) {
+        Log.d(UI_TAG, "[VIEW] Mensaje recibido desde SDK RFID: " + msg);
         runOnUiThread(() -> {
             Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
             if (msg.equalsIgnoreCase("Conectado")) {
@@ -200,6 +209,7 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
         new Thread(() -> {
             supportedPowerLevels = rfidHandler.getSupportedPowerLevels();
             if (supportedPowerLevels != null && supportedPowerLevels.length > 0) {
+                Log.d(UI_TAG, "[VIEW] Capacidades RFID cargadas. Niveles de potencia disponibles: " + supportedPowerLevels.length);
                 runOnUiThread(() -> {
                     skPotencia.setMax(supportedPowerLevels.length - 1);
                     
@@ -219,8 +229,10 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
                     }
                     skPotencia.setProgress(closestIndex);
                     txtPorcentaje.setText(String.valueOf(supportedPowerLevels[closestIndex]));
-                    txtCnfActual.setText("Potencia actual (Índice " + closestIndex + "): " + supportedPowerLevels[closestIndex]);
+                    txtCnfActual.setText("Potencia actual RFID (Indice " + closestIndex + "): " + supportedPowerLevels[closestIndex]);
                 });
+            } else {
+                Log.w(UI_TAG, "[VIEW] El lector RFID no devolvio niveles de potencia soportados.");
             }
         }).start();
     }
@@ -230,6 +242,7 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
         // Fix 6: performInventory/stopInventory son operaciones SDK que pueden bloquearse.
         // No deben ejecutarse en el UI thread — se delegan a un hilo background.
         final boolean isPressed = pressed;
+        Log.d(UI_TAG, "[VIEW] Evento de gatillo RFID recibido. pressed=" + pressed);
         new Thread(new Runnable() {
             @Override
             public void run() {
@@ -245,6 +258,7 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
     @Override
     public void handleTagdata(TagData[] tagData) {
         if (tagData == null) return;
+        Log.d(UI_TAG, "[VIEW] Batch de lectura RFID recibido. Cantidad de tags: " + tagData.length);
         StringBuilder sb = new StringBuilder();
         for (TagData tag : tagData) {
             String epc = tag.getTagID();
@@ -256,9 +270,9 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
         final int total = contadorTags;
         runOnUiThread(() -> {
             String actual = txtResultadoLectura.getText().toString();
-            if (actual.equals("(sin lecturas)")) actual = "";
+            if (actual.equals("(sin lecturas RFID)")) actual = "";
             txtResultadoLectura.setText(actual + nuevosEPCs);
-            txtContadorTags.setText("Tags leídos: " + total);
+            txtContadorTags.setText("Tags RFID leidos: " + total);
         });
     }
 
@@ -276,15 +290,15 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
         new AsyncTask<Void, Void, String>() {
             @Override
             protected String doInBackground(Void... voids) {
-                Log.d("RFID_SDK", "Iniciando intento de conexión...");
+                Log.d(UI_TAG, "[VIEW] Iniciando intento de conexion RFID desde la vista.");
                 return rfidHandler.onResume(); // Llama connect()
             }
 
             @Override
             protected void onPostExecute(String result) {
-                Log.d("RFID_SDK", "Resultado de conexión: " + (result.isEmpty() ? "Ya conectado" : result));
+                Log.d(UI_TAG, "[VIEW] Resultado de conexion RFID: " + (result.isEmpty() ? "Lector RFID ya conectado" : result));
                 Toast.makeText(_context,
-                        result.isEmpty() ? "Lector ya conectado" : result,
+                        result.isEmpty() ? "Lector RFID ya conectado" : result,
                         Toast.LENGTH_SHORT).show();
             }
         }.execute();
@@ -311,11 +325,12 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
         // Dispara un inventario puntual y lo detiene automáticamente a los 1.5 s.
         btnLecturaSencilla.setOnClickListener(v -> {
             if (!rfidHandler.isReaderConnected()) {
-                Toast.makeText(_context, "Sin lector conectado", Toast.LENGTH_SHORT).show();
+                Log.w(UI_TAG, "[VIEW] Lectura RFID simple cancelada: no hay lector conectado.");
+                Toast.makeText(_context, "Sin lector RFID conectado", Toast.LENGTH_SHORT).show();
                 return;
             }
             limpiarResultados();
-            Log.d("RFID_SDK", "[TEST] Lectura sencilla iniciada");
+            Log.d(UI_TAG, "[VIEW] Iniciando prueba de lectura RFID simple.");
             new Thread(() -> {
                 rfidHandler.performInventory();
                 // Detener tras 1.5 s
@@ -327,23 +342,24 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
         // Toggle: inicia inventario continuo o lo detiene según el estado actual.
         btnLecturaSostenida.setOnClickListener(v -> {
             if (!rfidHandler.isReaderConnected()) {
-                Toast.makeText(_context, "Sin lector conectado", Toast.LENGTH_SHORT).show();
+                Log.w(UI_TAG, "[VIEW] Lectura RFID continua cancelada: no hay lector conectado.");
+                Toast.makeText(_context, "Sin lector RFID conectado", Toast.LENGTH_SHORT).show();
                 return;
             }
             if (!lecturaSostenidaActiva) {
                 lecturaSostenidaActiva = true;
                 limpiarResultados();
-                btnLecturaSostenida.setText("⏹ Detener Continua");
+                btnLecturaSostenida.setText("Detener RFID continuo");
                 btnLecturaSostenida.setBackgroundTintList(
                     android.content.res.ColorStateList.valueOf(Color.parseColor("#D32F2F")));
-                Log.d("RFID_SDK", "[TEST] Lectura sostenida iniciada");
+                Log.d(UI_TAG, "[VIEW] Iniciando prueba de lectura RFID continua.");
                 new Thread(() -> rfidHandler.performInventory()).start();
             } else {
                 lecturaSostenidaActiva = false;
-                btnLecturaSostenida.setText("▶ Iniciar Continua");
+                btnLecturaSostenida.setText("Iniciar RFID continuo");
                 btnLecturaSostenida.setBackgroundTintList(
                     android.content.res.ColorStateList.valueOf(Color.parseColor("#388E3C")));
-                Log.d("RFID_SDK", "[TEST] Lectura sostenida detenida");
+                Log.d(UI_TAG, "[VIEW] Deteniendo prueba de lectura RFID continua.");
                 new Thread(() -> rfidHandler.stopInventory()).start();
             }
         });
@@ -352,9 +368,10 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
     /** Limpia el área de resultados y reinicia el contador. */
     private void limpiarResultados() {
         contadorTags = 0;
+        Log.d(UI_TAG, "[VIEW] Reiniciando resultados de lectura RFID en pantalla.");
         runOnUiThread(() -> {
             txtResultadoLectura.setText("");
-            txtContadorTags.setText("Tags leídos: 0");
+            txtContadorTags.setText("Tags RFID leidos: 0");
         });
     }
 
@@ -370,6 +387,7 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
                 potenciaAntena = String.valueOf(valorReal);
                 txtPorcentaje.setText(potenciaAntena);
                 if (fromUser) {
+                    Log.d(UI_TAG, "[VIEW] Usuario ajusto potencia RFID. indice=" + progress + ", valor=" + valorReal);
                     SharedPreferencesGetSet.guardar_local("potenciaAntena", potenciaAntena, getApplicationContext());
                     // Aplicar al lector inmediatamente si está conectado
                     if (rfidHandler != null) {
@@ -393,10 +411,11 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
         public void onStopTrackingTouch(SeekBar seekBar) {
             final int progress = seekBar.getProgress();
             if (supportedPowerLevels != null) {
-                txtCnfActual.setText("Potencia actual: " + supportedPowerLevels[progress]);
+                txtCnfActual.setText("Potencia actual RFID: " + supportedPowerLevels[progress]);
             }
 
             if (rfidHandler != null) {
+                Log.d(UI_TAG, "[VIEW] Aplicando potencia RFID seleccionada. indice=" + progress);
                 new Thread(() -> {
                     // El SDK de Zebra usa el ÍNDICE para configurar la potencia
                     rfidHandler.setAntennaPower(progress);
