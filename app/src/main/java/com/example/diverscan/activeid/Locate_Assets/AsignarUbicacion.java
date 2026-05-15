@@ -45,8 +45,10 @@ import com.zebra.rfid.api3.TagData;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -107,6 +109,7 @@ public class AsignarUbicacion extends AppCompatActivity implements ResponseHandl
     private String idOficinaEPC;
     TagWriter rfidHandler;
     private String _lastTag = "";
+    private final Set<String> _epcsLeidosTrigger = new LinkedHashSet<>();
     private boolean triggerPressed = false;
     private long startTime=1*60*15000;
     private final long interval = 1*1000;
@@ -447,16 +450,35 @@ public class AsignarUbicacion extends AppCompatActivity implements ResponseHandl
 
     @Override
     public void handleTagdata(TagData[] tagData) {
-        final StringBuilder sb = new StringBuilder();
-        for (int index = 0; index < tagData.length; index++) {
-            sb.append(tagData[index].getTagID() + "\n");
-            _lastTag = tagData[index].getTagID();
+        String tagUnico = null;
+        int cantidadTags;
+        synchronized (_epcsLeidosTrigger) {
+            for (TagData tag : tagData) {
+                if (tag == null) {
+                    continue;
+                }
+                String epcLeido = tag.getTagID();
+                if (epcLeido != null && !epcLeido.trim().isEmpty()) {
+                    _epcsLeidosTrigger.add(epcLeido);
+                }
+            }
+            cantidadTags = _epcsLeidosTrigger.size();
+            if (cantidadTags == 1) {
+                tagUnico = _epcsLeidosTrigger.iterator().next();
+                _lastTag = tagUnico;
+            }
         }
+        final String tagFinal = tagUnico;
+        final int totalTags = cantidadTags;
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                //epcView.append(sb.toString());
-                EPCView.setText(_lastTag);
+                if (tagFinal != null) {
+                    EPCView.setText(tagFinal);
+                } else if (totalTags > 1) {
+                    EPCView.setText("");
+                    EPCView.setError("Se detectaron multiples tags RFID");
+                }
             }
         });
     }
@@ -474,6 +496,10 @@ public class AsignarUbicacion extends AppCompatActivity implements ResponseHandl
     public void handleTriggerPress(boolean pressed) {
         triggerPressed = pressed;
         if (pressed) {
+            synchronized (_epcsLeidosTrigger) {
+                _epcsLeidosTrigger.clear();
+            }
+            _lastTag = "";
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
@@ -482,8 +508,21 @@ public class AsignarUbicacion extends AppCompatActivity implements ResponseHandl
                 }
             });
             rfidHandler.performInventory();
-        } else
+        } else {
             rfidHandler.stopInventory();
+            final int cantidadTags;
+            synchronized (_epcsLeidosTrigger) {
+                cantidadTags = _epcsLeidosTrigger.size();
+            }
+            if (cantidadTags > 1) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(getApplicationContext(), "Se detectaron multiples tags RFID. Acerque solo uno.", Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+        }
     }
 
     //***************************************************************************************************************

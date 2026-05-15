@@ -41,10 +41,12 @@ import com.example.diverscan.activeid.sqlite.OfficesDBHelper;
 import com.zebra.rfid.api3.TagData;
 
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 public class ElegirUbicacion_TomaFisica extends AppCompatActivity implements ResponseHandlerInterface {
 
@@ -76,6 +78,7 @@ public class ElegirUbicacion_TomaFisica extends AppCompatActivity implements Res
     Snackbar _snackbar;
     TagWriter rfidHandler;
     private String _lastTag = "";
+    private final Set<String> _epcsLeidosTrigger = new LinkedHashSet<>();
     private boolean triggerPressed = false;
 
     public ElegirUbicacion_TomaFisica() {
@@ -638,8 +641,19 @@ public class ElegirUbicacion_TomaFisica extends AppCompatActivity implements Res
 
     @Override
     public void handleTagdata(TagData[] tagData) {
-        for (int index = 0; index < tagData.length; index++) {
-            _lastTag = tagData[index].getTagID();
+        synchronized (_epcsLeidosTrigger) {
+            for (TagData tag : tagData) {
+                if (tag == null) {
+                    continue;
+                }
+                String epcLeido = tag.getTagID();
+                if (epcLeido != null && !epcLeido.trim().isEmpty()) {
+                    _epcsLeidosTrigger.add(epcLeido);
+                }
+            }
+            if (_epcsLeidosTrigger.size() == 1) {
+                _lastTag = _epcsLeidosTrigger.iterator().next();
+            }
         }
     }
 
@@ -652,14 +666,32 @@ public class ElegirUbicacion_TomaFisica extends AppCompatActivity implements Res
     public void handleTriggerPress(boolean pressed) {
         triggerPressed = pressed;
         if (pressed) {
+            synchronized (_epcsLeidosTrigger) {
+                _epcsLeidosTrigger.clear();
+            }
+            _lastTag = "";
             rfidHandler.performInventory();
         } else {
             rfidHandler.stopInventory();
+            final String epcSeleccionado;
+            final int cantidadTags;
+            synchronized (_epcsLeidosTrigger) {
+                cantidadTags = _epcsLeidosTrigger.size();
+                epcSeleccionado = cantidadTags == 1 ? _epcsLeidosTrigger.iterator().next() : null;
+            }
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    cargarUbicacionPorEPC(_lastTag);
-                    Message();
+                    if (epcSeleccionado != null) {
+                        _lastTag = epcSeleccionado;
+                        cargarUbicacionPorEPC(epcSeleccionado);
+                        Message();
+                    } else if (cantidadTags > 1) {
+                        AlertasPersonalizadas.showAlertDialog(_activity, "Atencion",
+                                "Se detectaron multiples tags RFID. Acerque unicamente el tag de la oficina.");
+                    } else {
+                        MostrarSnackBar(false, "No se detecto un tag RFID valido.");
+                    }
                 }
             });
         }

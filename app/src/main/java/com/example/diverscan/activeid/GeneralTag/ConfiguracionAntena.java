@@ -407,14 +407,10 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
     }
 
     public SeekBar.OnSeekBarChangeListener OnSeekPotencia = new SeekBar.OnSeekBarChangeListener(){
-
-        // Fix 5: potencia mínima funcional para el lector Zebra
-        private final int MIN_POWER = 30;
-
         @Override
         public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser){
             if (supportedPowerLevels != null && progress < supportedPowerLevels.length) {
-                int valorReal = supportedPowerLevels[progress];
+                final int valorReal = supportedPowerLevels[progress];
                 potenciaAntena = String.valueOf(valorReal);
                 txtPorcentaje.setText(potenciaAntena);
                 if (fromUser) {
@@ -423,7 +419,7 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
                     // Aplicar al lector inmediatamente si está conectado
                     if (rfidHandler != null) {
                         new Thread(() -> {
-                            rfidHandler.setAntennaPower(progress);
+                            rfidHandler.setAntennaPower(valorReal);
                         }).start();
                     }
                 }
@@ -442,15 +438,15 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
         public void onStopTrackingTouch(SeekBar seekBar) {
             final int progress = seekBar.getProgress();
             if (supportedPowerLevels != null) {
-                txtCnfActual.setText("Potencia actual RFID: " + supportedPowerLevels[progress]);
-            }
-
-            if (rfidHandler != null) {
-                Log.d(UI_TAG, "[VIEW] Aplicando potencia RFID seleccionada. indice=" + progress);
-                new Thread(() -> {
-                    // El SDK de Zebra usa el ÍNDICE para configurar la potencia
-                    rfidHandler.setAntennaPower(progress);
-                }).start();
+                final int valorReal = supportedPowerLevels[progress];
+                txtCnfActual.setText("Potencia actual RFID: " + valorReal);
+                if (rfidHandler != null) {
+                    Log.d(UI_TAG, "[VIEW] Aplicando potencia RFID seleccionada. indice=" + progress + ", valor=" + valorReal);
+                    new Thread(() -> rfidHandler.setAntennaPower(valorReal)).start();
+                }
+            } else if (rfidHandler != null) {
+                Log.d(UI_TAG, "[VIEW] Aplicando potencia RFID sin capacidades cargadas. valor=" + progress);
+                new Thread(() -> rfidHandler.setAntennaPower(progress)).start();
             }
         }
 

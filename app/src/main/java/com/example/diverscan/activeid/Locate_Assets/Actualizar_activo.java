@@ -71,14 +71,18 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.logging.Logger;
 
 public class Actualizar_activo extends AppCompatActivity implements ResponseHandlerInterface {
+    private static final String TAG = "Actualizar_activo";
+    private static final String RFID_FLOW_TAG = "RFID_FLOW";
 
     //region Variables
     private RadioGroup opcionesBusqueda;
@@ -167,6 +171,7 @@ public class Actualizar_activo extends AppCompatActivity implements ResponseHand
 
     private boolean SubActivoOn = false;
     private String _lastTag = "";
+    private final Set<String> _epcsLeidosTrigger = new LinkedHashSet<>();
     private String _locateTag= "";
     private boolean triggerPressed = false;
     private boolean respuestaActualizado= false;
@@ -195,15 +200,7 @@ public class Actualizar_activo extends AppCompatActivity implements ResponseHand
         cargarEstado();
         CargarEstadoConservacion();
         listDescriptions =  findViewById(R.id.listView);
-
-        rfidHandler = TagWriter.getInstance();
-
-        if (rfidHandler != null && !rfidHandler.isInitialized()) {
-            rfidHandler.onCreate(this); // usa GetContext() internamente
-        }
-
-        rfidHandler.setResponseHandler(this);
-        rfidHandler.onResume();
+        prepararSesionRfid(false);
 
 
 
@@ -237,30 +234,74 @@ public class Actualizar_activo extends AppCompatActivity implements ResponseHand
     @Override
     protected void onPostResume() {
         super.onPostResume();
-        // FIX ANR: rfidHandler.onResume() → connect() es bloqueante en Bluetooth.
-        // Se mueve a hilo background para evitar ANR al retornar a esta pantalla.
-        if (rfidHandler != null) {
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    final String status = rfidHandler.onResume(Actualizar_activo.this);
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (!isFinishing() && !isDestroyed()) {
-                                Toast.makeText(getApplicationContext(), status, Toast.LENGTH_LONG).show();
-                            }
-                        }
-                    });
-                }
-            }).start();
-        }
+        prepararSesionRfid(true);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
         // rfidHandler.onDestroy(); // Comentado para mantener conexión
+    }
+
+    private void prepararSesionRfid(boolean reconnectIfNeeded) {
+        rfidHandler = TagWriter.getInstance();
+        if (rfidHandler == null) {
+            return;
+        }
+        rfidHandler.onCreate(this);
+        rfidHandler.setResponseHandler(this);
+        Log.d(RFID_FLOW_TAG, "[Actualizar_activo] Sesion RFID enlazada a la pantalla. initialized="
+                + rfidHandler.isInitialized() + ", reconnect=" + reconnectIfNeeded);
+        if (!reconnectIfNeeded) {
+            return;
+        }
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                Log.d(RFID_FLOW_TAG, "[Actualizar_activo] Validando/reutilizando conexion RFID al volver a la pantalla.");
+                final String status = rfidHandler.onResume(Actualizar_activo.this);
+                Log.d(RFID_FLOW_TAG, "[Actualizar_activo] Resultado de validacion RFID: " + status);
+            }
+        }).start();
+    }
+
+    private void reiniciarLecturaRfid() {
+        synchronized (_epcsLeidosTrigger) {
+            _epcsLeidosTrigger.clear();
+        }
+        _lastTag = "";
+    }
+
+    private void registrarTagsLeidos(TagData[] tagData) {
+        synchronized (_epcsLeidosTrigger) {
+            for (TagData tag : tagData) {
+                if (tag == null) {
+                    continue;
+                }
+                String epcLeido = tag.getTagID();
+                if (epcLeido != null && !epcLeido.trim().isEmpty()) {
+                    _epcsLeidosTrigger.add(epcLeido);
+                    if (_lastTag.isEmpty()) {
+                        _lastTag = epcLeido;
+                    }
+                }
+            }
+        }
+    }
+
+    private String obtenerTagUnicoLeido() {
+        synchronized (_epcsLeidosTrigger) {
+            if (_epcsLeidosTrigger.size() == 1) {
+                return _epcsLeidosTrigger.iterator().next();
+            }
+            return null;
+        }
+    }
+
+    private int obtenerCantidadTagsLeidos() {
+        synchronized (_epcsLeidosTrigger) {
+            return _epcsLeidosTrigger.size();
+        }
     }
 
     //endregion
@@ -1017,6 +1058,16 @@ public class Actualizar_activo extends AppCompatActivity implements ResponseHand
                 try{
                     EPCView.requestFocus();
                     rfidHandler.setAccessOperationConfiguration();
+                    String tagObjetivo = obtenerTagUnicoLeido();
+                    int cantidadTags = obtenerCantidadTagsLeidos();
+                    if (tagObjetivo == null) {
+                        if (cantidadTags > 1) {
+                            Toast.makeText(view.getContext(), "Se detectaron multiples tags RFID. Acerque un solo tag antes de grabar.", Toast.LENGTH_LONG).show();
+                        } else {
+                            Toast.makeText(view.getContext(), "No se ha leido un tag RFID unico.", Toast.LENGTH_LONG).show();
+                        }
+                        return;
+                    }
                     //String SourceEPC = "FF3620180831145052519399";
                     String Consecutivo = PlacaView.getText().toString();
                     int TamConsec = Consecutivo.length();
@@ -1028,11 +1079,11 @@ public class Actualizar_activo extends AppCompatActivity implements ResponseHand
 
                     String EPCnew = tagVerifica;// NumeroingresadoView.getText().toString();//EPCToWriteEnd + Consecutivo;
 
-                    boolean result = rfidHandler.WriteTag(_lastTag, EPCnew);
+                    boolean result = rfidHandler.WriteTag(tagObjetivo, EPCnew);
                     if(result == false){
                         Toast.makeText(view.getContext(), "No se ha leído ningún tag", Toast.LENGTH_LONG).show();
                     }else if (result) {
-                        Toast.makeText(view.getContext(), _lastTag + ", "+ "este Tag ha cambiado por: " + EPCnew, Toast.LENGTH_LONG).show();
+                        Toast.makeText(view.getContext(), tagObjetivo + ", "+ "este Tag ha cambiado por: " + EPCnew, Toast.LENGTH_LONG).show();
                         EPCView.setText(EPCnew);
                     }else{
                         Toast.makeText(view.getContext(), "Error al grabar", Toast.LENGTH_LONG).show();
@@ -1621,6 +1672,9 @@ public class Actualizar_activo extends AppCompatActivity implements ResponseHand
     @Override
     public void handleTagdata(TagData[] tagData) {
         Log.d("RFID_SAMPLE", "handleTagdata invocado, cantidad de tags: " + tagData.length);
+        registrarTagsLeidos(tagData);
+        final String tagUnico = obtenerTagUnicoLeido();
+        final int cantidadTags = obtenerCantidadTagsLeidos();
 
         if(!scannerActivate){
             final StringBuilder sb = new StringBuilder();
@@ -1653,12 +1707,16 @@ public class Actualizar_activo extends AppCompatActivity implements ResponseHand
                             count = 0;
                         }
                     } else {
-                        if(radio_EPCView.isChecked()){
-                            NumeroingresadoView.setInputType(InputType.TYPE_NULL);
-                            NumeroingresadoView.setText(_lastTag);
-                        } else {
-                            EPCView.setText(_lastTag);
-                            EPCView.requestFocus();
+                        if (tagUnico != null) {
+                            if(radio_EPCView.isChecked()){
+                                NumeroingresadoView.setInputType(InputType.TYPE_NULL);
+                                NumeroingresadoView.setText(tagUnico);
+                            } else {
+                                EPCView.setText(tagUnico);
+                                EPCView.requestFocus();
+                            }
+                        } else if (cantidadTags > 1) {
+                            Log.w(TAG, "Lectura RFID ambigua en Actualizar_activo. Tags unicos detectados=" + cantidadTags);
                         }
                     }
                 }
@@ -1672,6 +1730,7 @@ public class Actualizar_activo extends AppCompatActivity implements ResponseHand
         try{
             triggerPressed = pressed;
             if (pressed) {
+                reiniciarLecturaRfid();
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
@@ -1679,8 +1738,18 @@ public class Actualizar_activo extends AppCompatActivity implements ResponseHand
                     }
                 });
                 rfidHandler.performInventory();
-            } else
+            } else {
                 rfidHandler.stopInventory();
+                final int cantidadTags = obtenerCantidadTagsLeidos();
+                if (cantidadTags > 1) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(getApplicationContext(), "Se detectaron multiples tags RFID. Acerque solo uno para buscar o grabar.", Toast.LENGTH_LONG).show();
+                        }
+                    });
+                }
+            }
         }catch (Exception ex){
             Log.d(ex.getMessage(), ex.getStackTrace().toString());
             Toast.makeText(getApplicationContext(), ex.getMessage(), Toast.LENGTH_LONG).show();
