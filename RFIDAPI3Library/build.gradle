@@ -1,0 +1,9 @@
+// ============================================================
+// Módulo: RFIDAPI3Library — Zebra RFID API3 SDK v2.0.5.238
+// Expone el AAR principal como artefacto del módulo.
+// Los AARs adicionales se referencian directamente desde app/build.gradle
+// con fileTree para garantizar compatibilidad con versiones antiguas de Gradle.
+// ============================================================
+
+configurations.maybeCreate("default")
+artifacts.add("default", file('API3_READER-release-2.0.5.238.aar'))

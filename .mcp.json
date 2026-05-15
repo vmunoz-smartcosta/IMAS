@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "grepai": {
+      "command": "C:\\Users\\USUARIO\\AppData\\Local\\Programs\\grepai\\grepai.exe",
+      "args": [
+        "mcp-serve"
+      ]
+    }
+  }
+}

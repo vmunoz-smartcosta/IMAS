@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.constraint.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".GeneralTag.ConfiguracionAntena">
+
+    <LinearLayout
+        android:id="@+id/FConfigurarAntena"
+        android:layout_width="match_parent"
+        android:layout_centerHorizontal="true"
+        android:layout_height="match_parent"
+        android:layout_marginBottom="5dp"
+        android:orientation="vertical">
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="6dp"
+            android:text="█ ■ █ ■ █"/>
+
+
+        <RelativeLayout
+            android:layout_height = "5dp"
+            android:layout_width  = "match_parent"
+            android:text          = "█ ■ █ ■ █"
+            android:layout_marginLeft="15dp"
+            android:layout_marginRight="15dp">
+
+        </RelativeLayout>
+        <LinearLayout
+            android:layout_height = "wrap_content"
+            android:layout_width  = "match_parent"
+            android:orientation   = "vertical"
+            android:layout_marginLeft="15dp"
+            android:gravity="center"
+            android:layout_marginRight="15dp"
+            >
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="6dp"
+                android:text="█ ■ █ ■ █"
+
+                />
+            <LinearLayout
+                android:layout_height = "wrap_content"
+                android:layout_width  = "match_parent"
+                android:orientation   = "vertical"
+                android:layout_marginLeft="15dp"
+                android:gravity="center"
+                android:layout_marginRight="15dp"
+                >
+                <TextView
+                    android:id="@+id/Titulo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="27dp"
+                    android:layout_weight="1"
+                    android:text="Escoge la potencia de la antena"
+                    android:layout_centerInParent="true"
+                    android:textAlignment="center"
+                    android:textSize="17dp"
+                    android:textStyle="bold"
+                    />
+                <TextView
+                    android:id="@+id/txtUltimaConfiguracion"
+                    android:layout_width="wrap_content"
+                    android:layout_height="27dp"
+                    android:layout_weight="1"
+                    android:text=""
+                    android:layout_centerInParent="true"
+                    android:textAlignment="center"
+                    android:textSize="17dp"
+                    android:textStyle="bold"
+                    />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/txtPorcentaje"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0"
+                android:textSize="30sp"></TextView>
+
+            <ProgressBar
+                android:id="@+id/progressBar"
+                android:layout_width="300dp"
+                android:layout_height="wrap_content"
+                style="?android:progressBarStyleHorizontal"
+                android:layout_marginTop="20dp"
+                android:layout_marginBottom="15dp"
+               ></ProgressBar>
+
+            <SeekBar
+                android:id="@+id/skPotencia"
+                android:layout_width="300dp"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="10dp"/>
+
+        </LinearLayout>
+        <RelativeLayout
+            android:layout_height = "5dp"
+            android:layout_width  = "match_parent"
+            android:text          = "█ ■ █ ■ █"
+            android:layout_marginLeft="15dp"
+            android:layout_marginRight="15dp">
+        </RelativeLayout>
+        <LinearLayout
+            android:id="@+id/sectionAntenas"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="15dp"
+            android:layout_marginRight="15dp"
+            android:orientation="vertical"
+            android:visibility="visible">
+            <TextView
+                android:layout_marginTop="5dp"
+                android:layout_marginLeft="23dp"
+                android:layout_height="wrap_content"
+                android:textStyle="bold"
+                android:layout_width="wrap_content"
+                android:text="Antenas Disponibles:"
+                />
+            <Spinner
+                android:id="@+id/spinnerLectores"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:spinnerMode="dropdown" />
+
+
+        </LinearLayout>
+
+        <!-- ══════════════════════════════════════════════
+             SECCIÓN: PRUEBA DE LECTURA
+             ══════════════════════════════════════════════ -->
+        <LinearLayout
+            android:id="@+id/sectionPruebaLectura"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="15dp"
+            android:layout_marginRight="15dp"
+            android:layout_marginTop="8dp"
+            android:orientation="vertical"
+            android:background="#F5F5F5"
+            android:padding="10dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Prueba de Lectura"
+                android:textStyle="bold"
+                android:textSize="15sp"
+                android:layout_marginBottom="8dp"/>
+
+            <!-- Botones de acción -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center">
+
+                <Button
+                    android:id="@+id/btnLecturaSencilla"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginRight="6dp"
+                    android:text="📷 Lectura Sencilla"
+                    android:textSize="13sp"
+                    android:backgroundTint="#1976D2"
+                    android:textColor="#FFFFFF" />
+
+                <Button
+                    android:id="@+id/btnLecturaSostenida"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginLeft="6dp"
+                    android:text="▶ Iniciar Continua"
+                    android:textSize="13sp"
+                    android:backgroundTint="#388E3C"
+                    android:textColor="#FFFFFF" />
+
+            </LinearLayout>
+
+            <!-- Contador de tags -->
+            <TextView
+                android:id="@+id/txtContadorTags"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Tags leídos: 0"
+                android:textSize="13sp"
+                android:textStyle="bold"/>
+
+            <!-- Resultado en tiempo real -->
+            <TextView
+                android:id="@+id/txtResultadoLectura"
+                android:layout_width="match_parent"
+                android:layout_height="120dp"
+                android:layout_marginTop="4dp"
+                android:background="#FFFFFF"
+                android:padding="6dp"
+                android:text="(sin lecturas)"
+                android:textSize="12sp"
+                android:fontFamily="monospace"
+                android:scrollbars="vertical"
+                android:gravity="top"/>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginLeft="15dp"
+            android:layout_marginRight="15dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/txtPotencia"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="bottom|center_horizontal"
+                android:text=""
+                android:textSize="13dp"
+                android:textStyle="italic" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</android.support.constraint.ConstraintLayout>

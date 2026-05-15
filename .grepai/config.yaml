@@ -1,0 +1,37 @@
+version: 1
+embedder:
+    provider: ollama
+    model: nomic-embed-text
+    endpoint: http://localhost:11434
+    dimensions: 768
+    parallelism: 4
+store:
+    backend: gob
+chunking:
+    size: 512
+    overlap: 50
+watch:
+    debounce_ms: 500
+    last_index_time: 2026-02-10T16:54:42.9828596-05:00
+search:
+    boost:
+        enabled: false
+        penalties: []
+        bonuses: []
+    hybrid:
+        enabled: false
+        k: 0
+trace:
+    mode: ""
+    enabled_languages: []
+    exclude_patterns: []
+update:
+    check_on_startup: false
+ignore:
+    - .git
+    - .grepai
+    - node_modules
+    - vendor
+    - target
+    - .zig-cache
+    - zig-out
