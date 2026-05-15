@@ -36,6 +36,8 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
     private static final String UI_TAG = "RFID_UI";
     private static final SimpleDateFormat LOG_TIME_FORMAT =
             new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US);
+    private static final int MAX_REINTENTOS_LECTORES = 4;
+    private static final long RETARDO_REINTENTO_LECTORES_MS = 1200L;
     private TextView txtPotencia;
     private TextView txtCnfActual;
     private SeekBar skPotencia;
@@ -118,46 +120,7 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
             }
         }.start();
 
-
-        new AsyncTask<Void, Void, List<String>>() {
-            @Override
-            protected List<String> doInBackground(Void... voids) {
-                Log.d(UI_TAG, "[VIEW] Solicitando al SDK la lista de lectores RFID disponibles.");
-                return rfidHandler.getAvailableReaderNames();
-            }
-
-            @Override
-            protected void onPostExecute(List<String> readerNames) {
-                if (readerNames != null && !readerNames.isEmpty()) {
-                    Log.d(UI_TAG, "[VIEW] Lectores RFID encontrados para la vista: " + readerNames.size() + " -> " + readerNames);
-                    ArrayAdapter<String> adapter = new ArrayAdapter<>(_context,
-                            android.R.layout.simple_spinner_item, readerNames);
-                    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-                    spReaders.setAdapter(adapter);
-
-                    // Seleccionar el primero o el actual
-                    spReaders.setSelection(0);
-
-                    // Escuchar cambios de selección
-                    spReaders.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-                        @Override
-                        public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                            String lectorSeleccionado = readerNames.get(position);
-                            Log.d(UI_TAG, "[VIEW] Lector RFID seleccionado en vista: " + lectorSeleccionado);
-                            rfidHandler.setReaderName(lectorSeleccionado);
-                            conectarLector();
-                        }
-
-                        @Override
-                        public void onNothingSelected(AdapterView<?> parent) {}
-                    });
-
-                } else {
-                    Log.e(UI_TAG, "[VIEW] El SDK RFID no devolvio lectores para la vista de configuracion.");
-                    Toast.makeText(_context, "No hay lectores RFID disponibles", Toast.LENGTH_LONG).show();
-                }
-            }
-        }.execute();
+        cargarLectoresRfid(1);
     }
     @Override
     protected void onPause() {
@@ -208,6 +171,7 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
             Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
             if (msg.equalsIgnoreCase("Conectado")) {
                 actualizarCapacidadesLector();
+                cargarLectoresRfid(1);
             }
         });
     }
@@ -318,6 +282,58 @@ public class ConfiguracionAntena extends AppCompatActivity implements ResponseHa
             }
         }.execute();
     }
+
+    private void cargarLectoresRfid(int intento) {
+        new AsyncTask<Void, Void, List<String>>() {
+            @Override
+            protected List<String> doInBackground(Void... voids) {
+                Log.d(UI_TAG, "[VIEW] Solicitando al SDK la lista de lectores RFID disponibles. intento=" + intento);
+                return rfidHandler.getAvailableReaderNames();
+            }
+
+            @Override
+            protected void onPostExecute(List<String> readerNames) {
+                if (readerNames != null && !readerNames.isEmpty()) {
+                    actualizarSpinnerLectores(readerNames);
+                    return;
+                }
+
+                boolean sdkReady = rfidHandler != null && rfidHandler.isSdkReady();
+                Log.w(UI_TAG, "[VIEW] No se obtuvieron lectores RFID. intento=" + intento + ", sdkReady=" + sdkReady);
+
+                if (intento < MAX_REINTENTOS_LECTORES) {
+                    handlerLectura.postDelayed(() -> cargarLectoresRfid(intento + 1), RETARDO_REINTENTO_LECTORES_MS);
+                } else {
+                    Log.e(UI_TAG, "[VIEW] El SDK RFID no devolvio lectores para la vista de configuracion tras "
+                            + MAX_REINTENTOS_LECTORES + " intentos.");
+                    Toast.makeText(_context, "No hay lectores RFID disponibles", Toast.LENGTH_LONG).show();
+                }
+            }
+        }.execute();
+    }
+
+    private void actualizarSpinnerLectores(List<String> readerNames) {
+        Log.d(UI_TAG, "[VIEW] Lectores RFID encontrados para la vista: " + readerNames.size() + " -> " + readerNames);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(_context,
+                android.R.layout.simple_spinner_item, readerNames);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spReaders.setAdapter(adapter);
+        spReaders.setSelection(0);
+        spReaders.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                String lectorSeleccionado = readerNames.get(position);
+                Log.d(UI_TAG, "[VIEW] Lector RFID seleccionado en vista: " + lectorSeleccionado);
+                rfidHandler.setReaderName(lectorSeleccionado);
+                conectarLector();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+            }
+        });
+    }
+
     public void controles(){
          mConfigurarAntena     = findViewById(R.id.FConfigurarAntena);
          txtPotencia           = findViewById(R.id.txtPotencia);

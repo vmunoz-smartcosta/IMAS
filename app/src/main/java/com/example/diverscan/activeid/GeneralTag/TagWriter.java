@@ -39,12 +39,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class TagWriter implements Readers.RFIDReaderEventHandler{
     final static String TAG = "RFID_SAMPLE";
+    private static final String SDK_TAG = "RFID_SDK";
     Context context;
     private static Readers readers;
     private static ArrayList<ReaderDevice> availableRFIDReaderList;
     private static ReaderDevice readerDevice;
     private static RFIDReader reader;
     private EventHandler eventHandler;
+    private ENUM_TRANSPORT currentTransport;
     //*************************************************************
     // handheld que usan en Fidelitas.
     String readername = "MC3300x";
@@ -122,17 +124,19 @@ public class TagWriter implements Readers.RFIDReaderEventHandler{
                 if (availableRFIDReaderList != null) {
                     for (ReaderDevice device : availableRFIDReaderList) {
                         names.add(device.getName());
-                        Log.d("RFID_SDK", "[VALIDACION] Lector RFID detectado por el SDK: " + device.getName());
+                        Log.d(SDK_TAG, "[VALIDACION] Lector RFID detectado por el SDK: " + device.getName());
                     }
-                    Log.d("RFID_SDK", "[VALIDACION] getAvailableReaderNames: " + names.size() + " lectores RFID encontrados.");
+                    Log.d(SDK_TAG, "[VALIDACION] getAvailableReaderNames: " + names.size()
+                            + " lectores RFID encontrados usando transporte "
+                            + (currentTransport != null ? currentTransport : "DESCONOCIDO") + ".");
                 } else {
-                    Log.w("RFID_SDK", "[VALIDACION] getAvailableReaderNames: La lista de lectores RFID es nula.");
+                    Log.w(SDK_TAG, "[VALIDACION] getAvailableReaderNames: La lista de lectores RFID es nula.");
                 }
             } else {
-                Log.e("RFID_SDK", "[VALIDACION] getAvailableReaderNames: El objeto Readers no ha sido inicializado.");
+                Log.e(SDK_TAG, "[VALIDACION] getAvailableReaderNames: El objeto Readers no ha sido inicializado.");
             }
         } catch (InvalidUsageException e) {
-            Log.e("RFID_SDK", "[VALIDACION] Error al obtener lista de lectores RFID: " + e.getMessage());
+            Log.e(SDK_TAG, "[VALIDACION] Error al obtener lista de lectores RFID: " + e.getMessage());
             e.printStackTrace();
         }
         return names;
@@ -433,6 +437,10 @@ public class TagWriter implements Readers.RFIDReaderEventHandler{
         return onResume();
     }
 
+    public boolean isSdkReady() {
+        return readers != null;
+    }
+
     //Adm*******************************************************************************************
 
     public void onPause() {
@@ -635,31 +643,17 @@ public class TagWriter implements Readers.RFIDReaderEventHandler{
         @Override
         protected Void doInBackground(Void... voids){
             Log.d(TAG, "[VALIDACION] CreateInstanceTask: Iniciando configuracion de Readers para RFID.");
-            InvalidUsageException invalidUsageException = null;
-            try{
-                Log.d(TAG, "[VALIDACION] Intentando inicializar RFID con ENUM_TRANSPORT.SERVICE_SERIAL");
-                readers = new Readers(context, ENUM_TRANSPORT.SERVICE_SERIAL);
-                availableRFIDReaderList = readers.GetAvailableRFIDReaderList();
-                Log.d(TAG, "[VALIDACION] SERVICE_SERIAL: Lectores RFID encontrados: " + (availableRFIDReaderList != null ? availableRFIDReaderList.size() : 0));
-            }catch (InvalidUsageException e){
-                Log.e(TAG, "[VALIDACION] Error en SERVICE_SERIAL: " + e.getMessage());
-                e.printStackTrace();
-                invalidUsageException = e;
-            }
-            
-            if (invalidUsageException != null){
-                Log.w(TAG, "[VALIDACION] SERVICE_SERIAL fallo, reintentando con ENUM_TRANSPORT.BLUETOOTH");
-                if (readers != null) {
-                    readers.Dispose();
-                    readers = null;
-                }
-                try {
-                    readers = new Readers(context, ENUM_TRANSPORT.BLUETOOTH);
-                    availableRFIDReaderList = readers.GetAvailableRFIDReaderList();
-                    Log.d(TAG, "[VALIDACION] BLUETOOTH: Lectores RFID encontrados: " + (availableRFIDReaderList != null ? availableRFIDReaderList.size() : 0));
-                } catch (Exception e) {
-                    Log.e(TAG, "[VALIDACION] Error critico al inicializar Readers en ambos modos: " + e.getMessage());
-                    e.printStackTrace();
+            boolean serialReady = initializeReadersForTransport(ENUM_TRANSPORT.SERVICE_SERIAL);
+            int serialCount = getCurrentAvailableReaderCount();
+
+            if (!serialReady || serialCount == 0) {
+                Log.w(TAG, "[VALIDACION] SERVICE_SERIAL no dejo lectores utilizables. readersReady="
+                        + serialReady + ", count=" + serialCount + ". Reintentando con BLUETOOTH.");
+                disposeReaders();
+                boolean bluetoothReady = initializeReadersForTransport(ENUM_TRANSPORT.BLUETOOTH);
+                int bluetoothCount = getCurrentAvailableReaderCount();
+                if (!bluetoothReady || bluetoothCount == 0) {
+                    Log.e(TAG, "[VALIDACION] No fue posible obtener lectores RFID con SERVICE_SERIAL ni BLUETOOTH.");
                 }
             }
             return null;
@@ -736,6 +730,46 @@ public class TagWriter implements Readers.RFIDReaderEventHandler{
         {
             Log.e(TAG, "[VALIDACION] GetAvailableReader: InvalidUsageException -> " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    private boolean initializeReadersForTransport(ENUM_TRANSPORT transport) {
+        try {
+            Log.d(TAG, "[VALIDACION] Intentando inicializar RFID con " + transport);
+            readers = new Readers(context, transport);
+            currentTransport = transport;
+            availableRFIDReaderList = readers.GetAvailableRFIDReaderList();
+            Log.d(TAG, "[VALIDACION] " + transport + ": Lectores RFID encontrados: "
+                    + (availableRFIDReaderList != null ? availableRFIDReaderList.size() : 0));
+            return true;
+        } catch (InvalidUsageException e) {
+            Log.e(TAG, "[VALIDACION] Error inicializando RFID con " + transport + ": " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        } catch (Exception e) {
+            Log.e(TAG, "[VALIDACION] Error critico inicializando RFID con " + transport + ": " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    private int getCurrentAvailableReaderCount() {
+        return availableRFIDReaderList != null ? availableRFIDReaderList.size() : 0;
+    }
+
+    private void disposeReaders() {
+        try {
+            if (readers != null) {
+                readers.Dispose();
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "[VALIDACION] disposeReaders: " + e.getMessage());
+        } finally {
+            readers = null;
+            availableRFIDReaderList = null;
+            readerDevice = null;
+            reader = null;
+            currentTransport = null;
         }
     }
 
